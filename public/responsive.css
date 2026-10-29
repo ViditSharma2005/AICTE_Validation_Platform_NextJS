@@ -1,0 +1,270 @@
+/* =====================================================================
+   Responsive layer (V2). Loaded after styles.css so it can correct the
+   few places where the GOV-3 shell did not hold at small widths.
+
+   Rules observed throughout:
+   - The page never scrolls horizontally. Wide tables scroll inside their
+     own .table-scroll panel, which is the one intentional scroll region.
+   - Nothing is hidden that carries evidence; on narrow screens evidence
+     tables become stacked definition lists inside the same panel.
+   - Touch targets stay at least 44 × 44 px on handheld widths.
+   Breakpoints: 1100 · 1024 · 900 · 768 · 560 · 420 · 360 px.
+   ===================================================================== */
+
+html, body { max-width: 100%; }
+body { overflow-x: hidden; }
+
+/* the one intentional horizontal scroll region */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.table-scroll > table { min-width: 640px; }
+.table-scroll.narrow > table { min-width: 420px; }
+
+img, svg, video, canvas { max-width: 100%; }
+
+/* long identifiers, hashes and file names must wrap rather than push */
+.mono, pre, code, .doc-field b { overflow-wrap: anywhere; }
+
+/* ---------------------------- 1100 px ---------------------------------- */
+@media (max-width: 1100px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  main.wrap { padding-left: 20px; padding-right: 20px; }
+}
+
+/* ----------------------------- 1024 px --------------------------------- */
+@media (max-width: 1024px) {
+  .ledger { grid-template-columns: 1fr 1fr; }
+  .stats-band { grid-template-columns: 1fr 1fr; }
+  .chart-wrap { overflow-x: auto; }
+  .chart-wrap svg { min-width: 620px; }
+}
+
+/* ------------------------------ 900 px --------------------------------- */
+@media (max-width: 900px) {
+  .utility-in { gap: 8px; }
+  .util-controls { margin-left: 0; width: 100%; justify-content: flex-start; row-gap: 6px; }
+  .util-group { flex-wrap: wrap; }
+  .nav-in { gap: 6px; }
+  .nav-toggle { min-height: 44px; padding: 0 12px; }
+  .top-right { width: 100%; justify-content: flex-start; gap: 12px; }
+  .crumbs-bar ol.crumbs { overflow-x: auto; white-space: nowrap; }
+  .with-toc > div { min-width: 0; }
+  .rows > a, .rows > div.row { grid-template-columns: 1fr !important; row-gap: 6px; }
+  .rows > a > span:last-child { display: none; }
+  .flag-head { flex-wrap: wrap; row-gap: 6px; }
+  .flag-actions { grid-template-columns: 1fr; }
+  .flag-actions .btn { width: 100%; min-height: 44px; }
+  .modal { width: min(96vw, 640px); }
+  .btn, .btn.small, .linkbtn { min-height: 44px; }
+  .btn.small { padding: 0 14px; }
+  input, select, textarea { min-height: 44px; }
+  input[type="checkbox"], input[type="radio"] { min-height: 24px; }
+  .toc { padding-bottom: 4px; }
+  .toc a { min-height: 40px; display: inline-flex; align-items: center; }
+  .footer-cols { gap: 20px; }
+}
+
+/* ------------------------------ 768 px --------------------------------- */
+@media (max-width: 768px) {
+  main.wrap { padding: 16px 14px 36px; }
+  .wrap { padding: 0 14px; }
+  main h1 { font-size: 1.5rem; }
+  .ledger > div { padding: 12px 14px; }
+  .ledger .big { font-size: 1.7rem; }
+  .panel { padding: 14px; }
+  .section { margin-top: 28px; }
+  .doc-sheet { padding: 14px; }
+  .table-scroll > table { font-size: 0.86rem; }
+  .table-scroll th, .table-scroll td { padding: 8px 10px; }
+  .cam-viewport { aspect-ratio: 4 / 3; }
+  .filters { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stats-band { grid-template-columns: 1fr 1fr; }
+  .stats-band .big { font-size: 1.6rem; }
+}
+
+/* ------------------------------ 560 px --------------------------------- */
+@media (max-width: 560px) {
+  .utility-bar { font-size: 0.72rem; }
+  .util-note { display: none; }
+  .gov-line-2 { display: none; }
+  .gov-in { gap: 8px; padding-top: 8px; padding-bottom: 10px; }
+  .lockup-en { letter-spacing: 0; }
+  .site-search { margin-top: 4px; }
+  .honesty { font-size: 0.78rem; padding: 8px 12px; }
+  main.wrap { padding: 14px 12px 32px; }
+  .wrap { padding: 0 12px; }
+
+  .delta-strip, .ledger, .stats-band, .filters, .footer-cols { grid-template-columns: 1fr 1fr; }
+  .filters { grid-template-columns: 1fr; }
+
+  .table-scroll > table { min-width: 560px; }
+  .table-scroll th, .table-scroll td { padding: 7px 8px; white-space: normal; }
+  .table-scroll td.nowrap, .table-scroll th.nowrap { white-space: nowrap; }
+
+  .split-64, .split-55, .split-75, .services-2col { gap: 18px; }
+
+  .doc-sheet .doc-field { grid-template-columns: 1fr; gap: 2px; }
+  .doc-sheet .doc-field .k { margin-top: 6px; }
+  .defs { grid-template-columns: 1fr; }
+  .defs dt { margin-top: 8px; }
+
+  .btn-row { gap: 8px; }
+  .btn { width: 100%; justify-content: center; }
+  .btn-row > .btn, .btn-row > a.btn { width: 100%; }
+  .btn-row > .soft { width: 100%; }
+
+  .cam-viewport { aspect-ratio: 3 / 4; }
+  .cam-controls .btn-row > .btn { width: auto; flex: 1 1 auto; }
+
+  .toc a { font-size: 0.78rem; }
+  .footer-cols { gap: 16px; }
+  .strip-in { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* ------------------------------ 420 px --------------------------------- */
+@media (max-width: 420px) {
+  html { font-size: 15.5px; }
+  main h1 { font-size: 1.32rem; }
+  main h2 { font-size: 1.1rem; }
+  .ledger, .delta-strip, .stats-band { grid-template-columns: 1fr; }
+  .ledger > div:nth-child(2), .stats-band > div:nth-child(2) { border-top-color: var(--maroon); }
+  .delta-strip > div { border-left-width: 4px; }
+  .home-banner h1 { font-size: 1.22rem; }
+  .lockup-hi { font-size: 1rem; }
+  .lockup-en { font-size: 0.76rem; }
+  .emblem-slot { width: 46px; height: 46px; }
+  .chat-fab { min-height: 46px; }
+  .table-scroll > table { min-width: 480px; }
+}
+
+/* ------------------------------ 360 px --------------------------------- */
+@media (max-width: 360px) {
+  html { font-size: 15px; }
+  .wrap, main.wrap { padding-left: 10px; padding-right: 10px; }
+  .util-btn { min-width: 32px; padding: 0 6px; }
+  .table-scroll > table { min-width: 440px; }
+}
+
+/* --------------------- print: no floating controls --------------------- */
+@media print {
+  .chat-fab, .chat-panel, .cam-live { display: none !important; }
+}
+
+/* =====================================================================
+   V2 components — delta strip, network evidence, camera scanner, trust
+   graph, admin console, chat panel. Same rules as above: nothing scrolls
+   the page sideways, every interactive target stays at 44 px, and no
+   evidence is hidden at small widths, only re-flowed.
+   ===================================================================== */
+
+/* long unbroken tokens (hashes, MAC fingerprints, file names) */
+.delta-tag, .net-note, .cam-err, .chat-msg, .toc a { overflow-wrap: anywhere; }
+
+/* grids should never be forced wider than their column */
+.ledger > div, .delta-strip > div, .stats-band > div { min-width: 0; }
+.net-ledger .big { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* the scanner takes the full column once it is narrow */
+.cam-live, .cam-viewport, .cam-controls { width: 100%; max-width: 100%; }
+.cam-viewport { max-height: 72vh; }
+.cam-controls input, .cam-controls select { max-width: 100%; }
+.radio-row { row-gap: 10px; }
+.radio-row label { align-items: flex-start; line-height: 1.45; }
+.radio-row input[type="radio"] { margin-top: 3px; flex: 0 0 auto; }
+ul.steps { padding-left: 18px; font-size: 0.86rem; line-height: 1.6; }
+progress { width: 100%; max-width: 760px; height: 10px; }
+
+/* ------------------------------------------------------------------ 1024 */
+@media (max-width: 1024px) {
+  .net-ledger .big { font-size: 1.5rem; }
+  .char-grid, .hashgrid { max-width: 100%; overflow-x: auto; }
+}
+
+/* ------------------------------------------------------------------- 900 */
+@media (max-width: 900px) {
+  /* the section index becomes a horizontal strip above the file */
+  .toc {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 0 8px;
+    border-left: 0;
+    border-bottom: 1px solid var(--line-blue);
+    scrollbar-width: thin;
+  }
+  .toc p { margin: 0 10px 0 0; align-self: center; white-space: nowrap; }
+  .toc a {
+    border-left: 0;
+    border-bottom: 3px solid var(--line-blue-soft);
+    padding: 6px 10px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+  .toc a:hover { border-bottom-color: var(--saffron); }
+  .with-toc > .toc { margin-bottom: 6px; }
+  .cam-controls input { max-width: 100%; }
+}
+
+/* ------------------------------------------------------------------- 768 */
+@media (max-width: 768px) {
+  .delta-strip { gap: 8px; }
+  .delta-strip > div { padding: 10px 12px; }
+  .net-ledger { gap: 8px; }
+  .chart-wrap svg { min-width: 540px; }
+  .modal { width: min(100vw - 24px, 640px); max-height: 88vh; overflow-y: auto; }
+  .doc-sheet .doc-field { font-size: 0.86rem; }
+}
+
+/* ------------------------------------------------------------------- 560 */
+@media (max-width: 560px) {
+  .cam-viewport { aspect-ratio: 3 / 4; max-height: 60vh; }
+  .cam-controls .btn-row { flex-direction: column; align-items: stretch; }
+  .cam-controls .btn-row > .btn { width: 100%; }
+  .radio-row { flex-direction: column; gap: 8px; }
+  .radio-row label { min-height: 44px; }
+  .table-scroll > table { min-width: 520px; }
+  .net-ledger { grid-template-columns: 1fr 1fr; }
+  .net-ledger .big { font-size: 1.35rem; }
+  .notice { padding: 10px 12px; font-size: 0.9rem; }
+  .chart-wrap svg { min-width: 440px; }
+  .toc a { font-size: 0.82rem; }
+}
+
+/* ------------------------------------------------------------------- 420 */
+@media (max-width: 420px) {
+  .net-ledger, .delta-strip { grid-template-columns: 1fr 1fr; }
+  .delta-strip .big, .net-ledger .big { font-size: 1.28rem; }
+  .delta-strip .lbl, .net-ledger .lbl { font-size: 0.62rem; letter-spacing: 0.03em; }
+  .chart-wrap svg { min-width: 380px; }
+  .modal { width: calc(100vw - 16px); padding: 16px; }
+  .btn-row { flex-direction: column; align-items: stretch; }
+  .btn-row > .btn, .btn-row > a.btn, .btn-row > button { width: 100%; }
+}
+
+/* ------------------------------------------------------------------- 360 */
+@media (max-width: 360px) {
+  .delta-strip, .net-ledger { grid-template-columns: 1fr; }
+  .cam-viewport { max-height: 54vh; }
+  .hero-actions, .btn-row { gap: 6px; }
+  .table-scroll > table { min-width: 480px; }
+}
+
+/* ------------------------- chat panel on handhelds ----------------------
+   chat.css takes the panel full-screen below 560 px; this layer only keeps
+   the reading column sane and stops iOS from zooming the page on focus. */
+@media (max-width: 560px) {
+  .chat-panel { max-height: none; border-radius: 0; }
+  .chat-log { max-height: none; }
+  #chat-input { font-size: 16px; }
+  .chat-chip { min-height: 44px; }
+}
+
+/* ------------------------- print: keep the new panels ------------------- */
+@media print {
+  .delta-strip, .net-ledger { break-inside: avoid; }
+  .cam-viewport, .chat-input { display: none !important; }
+}

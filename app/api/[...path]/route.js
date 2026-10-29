@@ -6,12 +6,12 @@ import * as E from "@/lib/engines.js";
 import {
   getStore, resetStore, now, jparse, getConfig, setConfig, registryMap,
   audit, alert, addFlag, instById, appById, docById, checklistByCode,
-  appRow, applicationDetail,
+  appRow, applicationDetail, deltaSummary,
 } from "@/lib/store.js";
 import {
   HttpError, signToken, currentUser, requireRole, publicUser, canSee, getApplicationOr404,
 } from "@/lib/auth.js";
-import { demoVariants, insertApplication, insertDoc, storeAfterM1, runValidation, graphFor } from "@/lib/pipeline.js";
+import { demoVariants, insertApplication, insertDoc, storeAfterM1, runValidation, graphFor, networkFor, submitPollWindow } from "@/lib/pipeline.js";
 import { answerChat } from "@/lib/chat.js";
 import crypto from "node:crypto";
 
@@ -42,6 +42,7 @@ async function dispatch(req, seg) {
       .map((it) => ({ ...it, required_fields: jparse(it.required_fields, []), modules: jparse(it.modules, []) }));
     return ok({
       checklist: items,
+      rule_version: s.rule_version,
       config: getConfig(s),
       statuses: [
         "Verified", "Mismatch detected", "Expired", "Verification pending",
@@ -202,6 +203,49 @@ async function dispatch(req, seg) {
     return ok(graphFor(s, getApplicationOr404(s, Number(b), user)));
   }
 
+  /* --------------------------- network evidence (MAC) ---------------------- */
+  if (m === "GET" && a === "applications" && b && c === "network") {
+    const user = currentUser(req);
+    const application = getApplicationOr404(s, Number(b), user);
+    return ok(networkFor(s, application));
+  }
+
+  if (m === "POST" && a === "applications" && b && c === "network" && d === "request-poll") {
+    const user = currentUser(req);
+    requireRole(user, "Scrutiny Officer", "Senior Officer");
+    const application = getApplicationOr404(s, Number(b), user);
+    const open = s.network_polls.find((p) => p.application_id === application.id && p.status === "Requested");
+    if (!open) {
+      s.network_polls.push({
+        id: s.next.network_polls++,
+        application_id: application.id,
+        day: now().slice(0, 10),
+        polled_at: now(),
+        agent: "",
+        status: "Requested",
+        devices: JSON.stringify([]),
+      });
+    }
+    audit(s, user.email, "NETWORK_POLL_REQUESTED", application.id, {
+      note: "Officer asked the college for a fresh three-day device polling window.",
+    });
+    alert(s, application.id, "Device polling requested", "Officer requested a fresh network polling window for this campus", "college");
+    return ok({
+      ok: true,
+      note: "The college submits a three-day polling window from the campus agent. Fingerprints are salted server-side and compared across institutions.",
+    });
+  }
+
+  if (m === "POST" && a === "applications" && b && c === "network" && d === "submit-poll") {
+    const user = currentUser(req);
+    requireRole(user, "College Admin");
+    const application = getApplicationOr404(s, Number(b), user);
+    const row = submitPollWindow(s, application, user.email);
+    const result = runValidation(s, application.id, user.email);
+    alert(s, application.id, "Device polling received", `Polling window ${row.day} submitted; checks re-run`, "officer");
+    return ok({ ok: true, poll: { day: row.day }, ...result, network: networkFor(s, application) });
+  }
+
   /* ------------------------------- documents / M1 -------------------------- */
   if (m === "GET" && a === "demo-files") {
     const user = currentUser(req);
@@ -256,7 +300,11 @@ async function dispatch(req, seg) {
     runValidation(s, application.id, user.email);
     const doc = docById(s, docId);
     if (outcome === "Manual review required" && doc) doc.verification_status = "Manual review required";
-    return ok({ m1: result, stored: true, document_id: docId, outcome });
+    return ok({
+      m1: result, stored: true, document_id: docId, outcome,
+      delta_status: doc ? doc.delta_status : null,
+      delta: deltaSummary(s, application.id),
+    });
   }
 
   if (m === "POST" && a === "applications" && b && c === "documents" && d === "upload") {
@@ -303,7 +351,11 @@ async function dispatch(req, seg) {
     runValidation(s, application.id, user.email);
     const after = docById(s, docId);
     if (after) after.verification_status = "Manual review required";
-    return ok({ m1: result, stored: true, document_id: docId, phash_indexed: !!phash });
+    return ok({
+      m1: result, stored: true, document_id: docId, phash_indexed: !!phash,
+      delta_status: after ? after.delta_status : null,
+      delta: deltaSummary(s, application.id),
+    });
   }
 
   if (m === "GET" && a === "documents" && b) {
@@ -389,7 +441,19 @@ async function dispatch(req, seg) {
     }
     const cfg = getConfig(s);
     let ml, mw, mh, src;
-    if ((bd.mode || "replay") === "replay") {
+    const mode = bd.mode || "replay";
+    if (mode === "camera") {
+      const problems = E.validateCameraScanPayload(bd);
+      if (problems.length) throw new HttpError(400, `Camera measurement incomplete: ${problems.join("; ")}`);
+      const geometry = E.validateCameraGeometry(bd);
+      if (geometry.length) throw new HttpError(400, `Camera measurement rejected: ${geometry.join("; ")}`);
+      ml = Number(bd.measured_l); mw = Number(bd.measured_w);
+      mh = Number(bd.measured_h || room.claimed_h);
+      if (!(ml > 0.5 && ml < 100 && mw > 0.5 && mw < 100)) {
+        throw new HttpError(400, "Measured length and width must be between 0.5 m and 100 m");
+      }
+      src = "Live camera corner-marking measurement (single-view perspective rectification) in the browser";
+    } else if (mode === "replay") {
       // Recorded-session replay of an ARCore corner-marking scan.
       ml = room.true_l; mw = room.true_w; mh = room.claimed_h;
       src = "Recorded ARCore session replay (web scan submission)";
@@ -409,10 +473,19 @@ async function dispatch(req, seg) {
     const result = E.arCompare(room.claimed_l, room.claimed_w, ml, mw, cfg.ar_tolerance_pct);
     Object.assign(result, {
       source: src,
+      mode,
       gps: { lat, lng, inside_campus_geofence: inside, distance_from_campus_centre_m: distM },
       challenge_code_matched: true,
-      device: bd.device || "Android (ARCore)",
-      capture_hash: crypto.randomBytes(8).toString("hex"),
+      device: bd.device || (mode === "camera" ? "Browser camera" : "Android (ARCore)"),
+      capture_hash: mode === "camera" && bd.frame_hash
+        ? String(bd.frame_hash).slice(0, 64)
+        : crypto.randomBytes(8).toString("hex"),
+      corners: mode === "camera" ? (bd.corners || []).map((c) => ({ x: Number(c.x), y: Number(c.y) })) : undefined,
+      calibration_edge_m: mode === "camera" ? Number(bd.calibration_edge_m) : undefined,
+      focal_px: mode === "camera" ? Number(bd.focal_px || 0) : undefined,
+      camera_note: mode === "camera"
+        ? "Measured from four corner marks on a live camera frame with one tape-measured edge as the scale. Perspective rectification, not a native ARCore/ARKit depth scan; read with the tolerance and the physical inspection rule."
+        : undefined,
     });
     room.measured_l = ml; room.measured_w = mw; room.measured_h = mh;
     room.scan_status = "Scanned";
@@ -527,8 +600,12 @@ async function dispatch(req, seg) {
       if (k in bd) cfg[k] = bd[k];
     }
     setConfig(s, cfg);
-    audit(s, user.email, "CONFIG_CHANGED", null, { changed: Object.keys(bd), note: "Rule changes are versioned in this log" });
-    return ok(cfg);
+    s.rule_version += 1;
+    audit(s, user.email, "CONFIG_CHANGED", null, {
+      changed: Object.keys(bd), rule_version: s.rule_version,
+      note: "Rule changes are versioned: every verified document is re-checked against the new rule version.",
+    });
+    return ok({ ...cfg, rule_version: s.rule_version });
   }
 
   if (m === "PUT" && a === "admin" && b === "checklist" && c) {
@@ -537,10 +614,15 @@ async function dispatch(req, seg) {
     const bd = await body();
     const item = checklistByCode(s, c);
     if (!item) throw new HttpError(404, "Checklist item not found");
-    item.mandatory = bd.mandatory ?? true ? 1 : 0;
+    item.mandatory = (bd.mandatory ?? true) ? 1 : 0;
     if (bd.severity !== undefined) item.severity = bd.severity;
-    audit(s, user.email, "RULE_CHANGED", null, { checklist: c, mandatory: bd.mandatory ?? null, severity: bd.severity ?? null });
-    return ok({ ok: true });
+    s.rule_version += 1;
+    audit(s, user.email, "RULE_CHANGED", null, {
+      checklist: c, mandatory: bd.mandatory ?? null, severity: bd.severity ?? null,
+      rule_version: s.rule_version,
+      note: "Checklist rule change; cached verifications are re-checked under the new version.",
+    });
+    return ok({ ok: true, rule_version: s.rule_version });
   }
 
   if (m === "GET" && a === "admin" && b === "users") {

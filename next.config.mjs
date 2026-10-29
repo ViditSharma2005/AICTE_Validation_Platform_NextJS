@@ -10,6 +10,9 @@ const nextConfig = {
       { source: "/chat.js", headers: noCache },
       { source: "/styles.css", headers: noCache },
       { source: "/chat.css", headers: noCache },
+      { source: "/responsive.css", headers: noCache },
+      { source: "/i18n.js", headers: noCache },
+      { source: "/scan.js", headers: noCache },
     ];
   },
 };

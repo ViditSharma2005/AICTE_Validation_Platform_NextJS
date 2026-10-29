@@ -126,6 +126,8 @@ function setView(html) {
   // Semantic tables everywhere: header cells carry scope (GIGW Section 3).
   $$("th", v).forEach((th) => { if (!th.getAttribute("scope")) th.setAttribute("scope", "col"); });
   window.scrollTo(0, 0); buildNav();
+  // Hindi pass over freshly rendered content (public/i18n.js).
+  if (window.AICTE_I18N) window.AICTE_I18N.apply(v);
 }
 function renderCrumbs(parts) {
   const el = $("#breadcrumbs");
@@ -446,7 +448,7 @@ async function renderCollegeApp(id) {
           const doc = d.documents.find((x) => x.checklist_code === it.code);
           return `<tr><td class="mono">${it.code}</td><td>${esc(it.name)}</td><td class="mono">${it.verification_type}</td>
           <td class="mono" style="font-size:.75rem">${(it.modules || []).join(" ")}</td>
-          <td>${doc ? vtag(doc.verification_status) + ` <a href="#/doc/${doc.id}">view</a>` : `<span class="tag sev-medium">Not filed</span>`}</td></tr>`;
+          <td>${doc ? vtag(doc.verification_status) + (doc.delta_status ? " " + deltaBadge(doc.delta_status) : "") + ` <a href="#/doc/${doc.id}">view</a>` : `<span class="tag sev-medium">Not filed</span>`}</td></tr>`;
         }).join("")}
       </tbody></table></div>
     </section>
@@ -495,10 +497,12 @@ async function renderCollegeApp(id) {
       </div>
       <div id="val-result" aria-live="polite"></div>
     </section>
+    ${deltaPanel(d)}
     ${flagsSection(d.flags, false, "04", "Findings so far", "These are advisory findings with their evidence. Officers act on them after submission; nothing here changes your application's standing by itself.")}
     <div id="fac-slot">${skeleton("faculty compliance")}</div>
     <div id="fin-slot">${skeleton("financial checks")}</div>
     ${roomsSection(d, "college")}
+    ${networkSection(d, "college")}
     <section class="section"><p class="eyebrow"><span class="no">07</span> Timeline</p>
       <h2 style="margin-bottom:12px">Everything that has happened to this file</h2><div id="audit-slot">${skeleton("timeline")}</div></section>
     `);
@@ -520,7 +524,7 @@ async function renderCollegeApp(id) {
         if (out.stored) toast("File stored and routed to manual review");
       } catch (e) { $("#ru-result").innerHTML = errBox(e.message); }
     };
-    loadFaculty(d.id); loadFinance(d.id); loadAudit(d.id, "#audit-slot");
+    loadFaculty(d.id); loadFinance(d.id); loadAudit(d.id, "#audit-slot"); loadNetwork(d.id);
   } catch (e) { setView(errBox(e.message)); }
 }
 
@@ -535,6 +539,11 @@ async function uploadDemo(appId, forceManual) {
     if (out.stored) toast(out.outcome === "Accepted" ? "Accepted at the gate" : "Filed for manual review");
   } catch (e) { box.innerHTML = errBox(e.message); }
 }
+function deltaLine(out) {
+  if (!out || !out.delta) return "";
+  const d = out.delta;
+  return `<p class="soft" style="font-size:.86rem;margin-top:8px">Delta cache: ${d.auto_passed} carried forward unchanged · ${d.modified} modified and re-verified · ${d.new_this_cycle} new · ${d.rechecked} re-checked for a rule or expiry change (rule version v${d.rule_version}).${out.delta_status ? ` This document: <b>${esc(out.delta_status)}</b>.` : ""}</p>`;
+}
 function m1ResultHTML(out, appId, canForce) {
   const m = out.m1;
   if (m.outcome === "Returned for fix") {
@@ -545,13 +554,55 @@ function m1ResultHTML(out, appId, canForce) {
   }
   if (m.outcome === "Accepted") {
     return `<div class="notice" role="status"><p style="margin:0"><b>Accepted.</b> Every required field was found (extraction confidence ${Math.round(m.confidence * 100)}%). Source verification runs on submission, or now from the pre-submission check. ${out.document_id ? `<a href="#/doc/${out.document_id}">Open the document page</a>.` : ""}</p></div>
+    ${deltaLine(out)}
     <div class="btn-row"><button class="btn ghost small" onclick="A.retry()">Refresh this application</button></div>`;
   }
   return `<div class="notice med" role="status"><p style="margin:0"><b>Filed for manual review.</b> ${esc((m.reasons || []).join(" "))} An officer will read this copy by hand; a model result will not hold your application back. ${out.document_id ? `<a href="#/doc/${out.document_id}">Open the document page</a>.` : ""}</p></div>
+  ${deltaLine(out)}
   <div class="btn-row"><button class="btn ghost small" onclick="A.retry()">Refresh this application</button></div>`;
 }
 
 /* -------------------------------------------------------------- sections */
+/* --------------------------- delta processing ----------------------------- */
+function deltaBadge(status) {
+  const cls = status === "Auto-passed (unchanged)" ? "verified"
+    : status === "Modified — re-verified" ? "mismatch"
+    : status === "Re-checked (rules updated)" || status === "Re-checked (expiry reached)" ? "manual"
+    : "declared";
+  return `<span class="tag ${cls} delta-tag" title="Delta Processing Cache">${esc(status)}</span>`;
+}
+function deltaPanel(d) {
+  const dl = d.delta || { auto_passed: 0, modified: 0, new_this_cycle: 0, rechecked: 0, total_documents: 0, rule_version: 1, cache_entries: 0 };
+  return `<section class="section" id="sec-delta">
+    <p class="eyebrow"><span class="no">Δ</span> Delta processing cache</p>
+    <h2 style="margin-bottom:8px">What was carried forward, and what was checked again</h2>
+    <p class="soft" style="max-width:74ch">A document that was already verified and has not changed since — same content hash, same rule version, not expired — does not go through the source gateway and the forensic pass a second time. Its earlier verdict is carried forward and reported as auto-passed. Anything else is re-checked in full. Nothing is skipped that the cache cannot vouch for.</p>
+    <div class="delta-strip" role="group" aria-label="Delta cache summary">
+      <div><div class="big">${dl.auto_passed}</div><div class="lbl">Auto-passed · unchanged</div></div>
+      <div><div class="big">${dl.modified}</div><div class="lbl">Modified · re-verified</div></div>
+      <div><div class="big">${dl.new_this_cycle}</div><div class="lbl">New this cycle</div></div>
+      <div><div class="big">${dl.rechecked}</div><div class="lbl">Re-checked · rules or expiry</div></div>
+    </div>
+    <p class="soft mono" style="font-size:.8rem;margin:10px 0 0">Rule version v${dl.rule_version} · ${dl.cache_entries} cache entries · ${dl.total_documents} documents in this file</p>
+  </section>`;
+}
+
+/* ---------------------------- network evidence ---------------------------- */
+function networkSection(d, side) {
+  const canRequest = side === "officer" && ["Scrutiny Officer", "Senior Officer"].includes(user.role);
+  const canPoll = side === "college" && user.role === "College Admin";
+  return `<section class="section" id="sec-network">
+    <p class="eyebrow"><span class="no">NET</span> Network evidence — declared against observed devices</p>
+    <h2 style="margin-bottom:8px">How many machines actually answer on campus</h2>
+    <p class="soft" style="max-width:74ch">The campus polling agent records which machines answer on the college network over three days. Only a salted fingerprint of each hardware address reaches the server — raw MAC addresses are never stored or shown — so the same physical machine is recognisable at two colleges without exposing it. Device evidence tells an officer where to look; it is not proof of ownership.</p>
+    ${canRequest || canPoll ? `<div class="btn-row">
+      ${canRequest ? `<button class="btn" onclick="A.requestPoll(${d.id}, this)">Request device polling</button>` : ""}
+      ${canPoll ? `<button class="btn primary" onclick="A.submitPoll(${d.id}, this)">Run polling window from the campus agent</button>` : ""}
+    </div>` : ""}
+    <div id="net-slot">${skeleton("network evidence")}</div>
+  </section>`;
+}
+
 function flagsSection(flags, canAct, no, title, intro) {
   return `<section class="section" id="sec-flags">
     <p class="eyebrow"><span class="no">${no}</span> Findings</p>
@@ -740,22 +791,31 @@ function scanFormHTML(r) {
   return `<div style="padding:8px 2px">
     <p><b>Measure ${esc(r.name)}.</b> Claimed ${r.claimed_l} × ${r.claimed_w} m (${(r.claimed_l * r.claimed_w).toFixed(1)} sq m). Stand in the room. The officer will read you a four-character code — type it exactly; it proves this scan answers this request.</p>
     <div class="radio-row" role="radiogroup" aria-label="Scan source">
-      <label><input type="radio" name="scanmode-${r.id}" value="replay" checked> Recorded ARCore session replay (web stand-in for the phone scan)</label>
-      <label><input type="radio" name="scanmode-${r.id}" value="manual"> Type measurements from a tape or phone measure app</label>
+      <label><input type="radio" name="scanmode-${r.id}" value="camera" checked onchange="A.scanMode(${r.id})"> Live camera measurement (mark the four floor corners)</label>
+      <label><input type="radio" name="scanmode-${r.id}" value="replay" onchange="A.scanMode(${r.id})"> Recorded ARCore session replay (web stand-in for the phone scan)</label>
+      <label><input type="radio" name="scanmode-${r.id}" value="manual" onchange="A.scanMode(${r.id})"> Type measurements from a tape or phone measure app</label>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;max-width:760px">
+    <div class="cam-live" id="cam-live-${r.id}">
+      <p class="soft" style="font-size:.86rem;margin:8px 0 0">Mark the four floor corners in order, starting at any corner and going around the room. Corner 1 to corner 2 is the edge you will tape-measure: enter its real length in metres below and the page computes the other side from the perspective. Expect a few percent of error in poor light; the result is advisory and an out-of-tolerance reading schedules a physical inspection.</p>
+      <div class="btn-row"><button class="btn small" type="button" onclick="A.openCam(${r.id}, this)">Open camera</button>
+        <span class="soft" style="font-size:.82rem">Camera images stay in this browser; only the four corners, the calibration and a frame hash are sent.</span></div>
+      <div id="cam-live-host-${r.id}"></div>
+      <p class="ferr" id="cam-err-${r.id}" role="alert" hidden></p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;max-width:860px">
       <div><label class="f" for="sc-code-${r.id}">Officer’s code <span class="req">*</span></label><input id="sc-code-${r.id}" maxlength="4" placeholder="e.g. K7Q2" autocomplete="off"></div>
-      <div><label class="f" for="sc-l-${r.id}">Measured length (m)</label><input id="sc-l-${r.id}" type="number" step="0.05" min="0" placeholder="manual mode"></div>
-      <div><label class="f" for="sc-w-${r.id}">Measured width (m)</label><input id="sc-w-${r.id}" type="number" step="0.05" min="0" placeholder="manual mode"></div>
+      <div><label class="f" for="sc-cal-${r.id}">Calibration edge (m)</label><input id="sc-cal-${r.id}" type="number" step="0.01" min="0.1" placeholder="corner 1 → 2"></div>
+      <div><label class="f" for="sc-l-${r.id}">Measured length (m)</label><input id="sc-l-${r.id}" type="number" step="0.05" min="0" placeholder="auto or manual"></div>
+      <div><label class="f" for="sc-w-${r.id}">Measured width (m)</label><input id="sc-w-${r.id}" type="number" step="0.05" min="0" placeholder="auto or manual"></div>
     </div>
     <p class="ferr" id="sc-err-${r.id}" role="alert" hidden></p>
     <ul class="steps" id="sc-steps-${r.id}" hidden>
-      <li>Camera open, floor plane detected</li><li>Four corners marked</li>
-      <li>Ceiling height read</li><li>GPS compared with campus geofence</li><li>Payload signed and sent</li>
+      <li>Camera open, floor corners marked</li><li>One edge calibrated against a tape measurement</li>
+      <li>Other dimension computed from the perspective</li><li>GPS compared with campus geofence</li><li>Payload signed and sent</li>
     </ul>
     <progress id="sc-prog-${r.id}" max="5" value="0" hidden aria-label="Scan progress"></progress>
-    <div class="btn-row"><button class="btn primary" onclick="A.runScan(${r.id}, this)">Start scan</button>
-    <span class="soft" style="font-size:.85rem">On Android this step is the ARCore app on the same Wi-Fi as the laptop — no cloud relay. iPhone Safari has no WebXR, so the web page alone cannot do this part.</span></div>
+    <div class="btn-row"><button class="btn primary" onclick="A.runScan(${r.id}, this)">Submit measurement</button>
+    <span class="soft" style="font-size:.85rem">Camera mode is corner-marking with perspective rectification in this browser, not a native ARCore depth scan. iPhone Safari has no WebXR; the camera path works there, depth scanning does not.</span></div>
   </div>`;
 }
 
@@ -866,8 +926,10 @@ async function renderOfficerApp(id) {
         <a href="#sec-faculty" onclick="return A.tocGo('sec-faculty')"><span class="n">04</span>Faculty</a>
         <a href="#sec-finance" onclick="return A.tocGo('sec-finance')"><span class="n">05</span>Finance</a>
         <a href="#sec-rooms" onclick="return A.tocGo('sec-rooms')"><span class="n">06</span>Rooms & scans</a>
-        <a href="#sec-graph" onclick="return A.tocGo('sec-graph')"><span class="n">07</span>Trust graph</a>
-        <a href="#sec-audit" onclick="return A.tocGo('sec-audit')"><span class="n">08</span>Audit trail</a>
+        <a href="#sec-network" onclick="return A.tocGo('sec-network')"><span class="n">07</span>Network</a>
+        <a href="#sec-delta" onclick="return A.tocGo('sec-delta')"><span class="n">08</span>Delta cache</a>
+        <a href="#sec-graph" onclick="return A.tocGo('sec-graph')"><span class="n">09</span>Trust graph</a>
+        <a href="#sec-audit" onclick="return A.tocGo('sec-audit')"><span class="n">10</span>Audit trail</a>
       </aside>
       <div>
         <div class="rise" style="--d:0" id="sec-summary">
@@ -910,15 +972,17 @@ async function renderOfficerApp(id) {
               const nf = d.flags.filter((f) => f.document_id === doc.id).length;
               return `<tr><td class="mono">${esc(doc.checklist_code)}</td><td>${esc(doc.title)}${doc.scenario ? ` <span class="tag declared" title="Validation case study">${esc(doc.scenario)}</span>` : ""}</td>
               <td class="mono" style="font-size:.76rem">${esc(doc.filename)}</td><td>${esc(doc.status)}</td>
-              <td>${vtag(doc.verification_status)}</td><td class="num">${nf}</td>
+              <td>${vtag(doc.verification_status)}${doc.delta_status ? `<br>${deltaBadge(doc.delta_status)}` : ""}</td><td class="num">${nf}</td>
               <td class="nowrap"><a href="#/doc/${doc.id}">Open →</a></td></tr>`;
             }).join("") : `<tr><td colspan="7">No documents filed yet.</td></tr>`}
           </tbody></table></div>
         </section>
+        ${deltaPanel(d)}
         ${flagsSection(d.flags, canAct, "03", "Findings, with evidence attached", "Accept what the evidence supports, ask the college where it does not, escalate what a desk cannot settle. Every action below is written to the audit trail and changes the risk score only by closing findings — never by editing them away.")}
         <div id="fac-slot">${skeleton("faculty compliance")}</div>
         <div id="fin-slot">${skeleton("financial checks")}</div>
         ${roomsSection(d, "officer")}
+        ${networkSection(d, "officer")}
         <section class="section" id="sec-graph">
           <p class="eyebrow"><span class="no">07</span> Trust graph</p>
           <h2 style="margin-bottom:10px">What this file shares with other files</h2>
@@ -944,7 +1008,7 @@ async function renderOfficerApp(id) {
         toast("Decision recorded"); route();
       } catch (e) { err.hidden = false; err.textContent = e.message; }
     };
-    loadFaculty(d.id); loadFinance(d.id); loadGraph(d.id); loadAudit(d.id, "#audit-slot");
+    loadFaculty(d.id); loadFinance(d.id); loadGraph(d.id); loadAudit(d.id, "#audit-slot"); loadNetwork(d.id);
   } catch (e) { setView(errBox(e.message)); }
 }
 
@@ -990,6 +1054,35 @@ async function loadGraph(appId) {
   } catch (e) { slot.innerHTML = errBox(e.message); }
 }
 
+async function loadNetwork(appId) {
+  const slot = $("#net-slot"); if (!slot) return;
+  try {
+    const n = await api(`/applications/${appId}/network`);
+    if (!n.polling_days) {
+      slot.innerHTML = `<div class="notice med" style="margin-top:14px"><p style="margin:0"><b>No polling window on file.</b> An officer can request device polling; the college then submits a three-day window from the campus agent. Declared systems for this institution: <b>${n.declared_systems}</b>.</p></div>`;
+      return;
+    }
+    slot.innerHTML = `
+      <div class="ledger net-ledger" style="margin:16px 0" aria-label="Network summary">
+        <div><div class="big">${n.declared_systems}</div><div class="lbl">Declared systems</div></div>
+        <div><div class="big">${n.observed_unique}</div><div class="lbl">Observed unique systems</div></div>
+        <div><div class="big">${n.variance_pct}%</div><div class="lbl">Variance vs declared</div></div>
+        <div><div class="big">${n.stable_devices}</div><div class="lbl">Seen on 2+ days</div></div>
+      </div>
+      <p style="margin:0 0 6px"><b>${n.below_declared ? "Below the declared estate." : "Consistent with the declared estate."}</b>
+        ${n.churn_devices} device(s) appeared on one day only. Tolerance ${n.tolerance_pct}%.</p>
+      <div class="table-scroll" style="margin-top:10px"><table>
+        <thead><tr><th>Polling day</th><th class="num">Systems seen</th><th>Agent</th></tr></thead><tbody>
+        ${n.per_day.map((p) => `<tr><td class="mono">${esc(p.day)}</td><td class="num">${p.count}</td><td style="font-size:.85rem">${esc(p.agent || "—")}</td></tr>`).join("")}
+      </tbody></table></div>
+      ${n.overlap.length ? `<div class="notice warn" style="margin-top:14px"><p style="margin:0 0 6px"><b>Shared machines with another institution.</b> The same salted fingerprints answer on both networks:</p>
+        <ul style="margin:0 0 0 18px">${n.overlap.map((o) => `<li>${esc(o.institution)} (${esc(o.institution_city)}) — ${o.shared_devices} shared devices, Jaccard ${o.jaccard} against a ${o.threshold} threshold. <a href="#/${user.role.startsWith("College") ? "college" : "officer"}/app/${o.application_id}">Open that file</a></li>`).join("")}</ul></div>`
+        : `<p class="soft" style="margin-top:12px">No device overlap with another institution above the configured threshold.</p>`}
+      <p class="soft" style="font-size:.84rem;margin-top:10px">${esc(n.note)}</p>
+      ${n.request_open ? `<p class="soft" style="font-size:.85rem">A polling request from an officer is open.</p>` : ""}`;
+  } catch (e) { slot.innerHTML = errBox(e.message); }
+}
+
 /* ------------------------------------------------------------ document page */
 async function renderDocument(docId) {
   setView(skeleton("document"));
@@ -1006,7 +1099,8 @@ async function renderDocument(docId) {
     <div class="rise" style="--d:0;margin-top:12px">
       <p class="eyebrow">Checklist ${esc(doc.checklist_code)} · ${esc(doc.filename)}</p>
       <h1 style="font-size:clamp(1.6rem,3.2vw,2.3rem);margin:10px 0 6px">${esc(doc.title)}</h1>
-      <p class="soft">Verification ${vtag(doc.verification_status)} · at the gate: ${esc(doc.status)} · filed ${esc((doc.uploaded_at || "").replace("T", " "))}</p>
+      <p class="soft">Verification ${vtag(doc.verification_status)} ${doc.delta_status ? deltaBadge(doc.delta_status) : ""} · at the gate: ${esc(doc.status)} · filed ${esc((doc.uploaded_at || "").replace("T", " "))}</p>
+      ${doc.content_hash ? `<p class="soft mono" style="font-size:.74rem;word-break:break-all">Content hash ${esc(doc.content_hash.slice(0, 24))}… · rule version v${(META && META.rule_version) || 1}</p>` : ""}
     </div>
     <div class="split-55 rise" style="--d:1;margin-top:22px">
       <div>
@@ -1274,7 +1368,7 @@ async function renderDocuments() {
       ${rows.map(({ doc, d, a }) => `<tr>
         <td>${esc(a.institution.name)}</td><td class="mono">${esc(a.academic_year)}</td><td class="mono">${esc(doc.checklist_code)}</td>
         <td>${esc(doc.title)}</td><td class="mono" style="font-size:.76rem">${esc(doc.filename)}</td><td>${esc(doc.status)}</td>
-        <td>${vtag(doc.verification_status)}</td><td class="num">${(d.flags || []).filter((f) => f.document_id === doc.id).length}</td>
+        <td>${vtag(doc.verification_status)}${doc.delta_status ? `<br>${deltaBadge(doc.delta_status)}` : ""}</td><td class="num">${(d.flags || []).filter((f) => f.document_id === doc.id).length}</td>
         <td class="nowrap"><a href="#/doc/${doc.id}">View</a></td></tr>`).join("")}
     </tbody></table></div>`
       : emptyBox("No documents filed yet", "Documents appear here after an institution uploads them through the college portal.")}`);
@@ -1376,7 +1470,12 @@ function showInfo(key) {
 const A = {
   retry() { route(); },
   /* GIGW accessibility controls */
-  setLang(l) { LANG = l; localStorage.setItem("aicte_lang", l); applyPrefs(); route(); },
+  setLang(l) {
+    LANG = l; localStorage.setItem("aicte_lang", l); applyPrefs();
+    if (window.AICTE_CHAT) window.AICTE_CHAT.setLang(l);
+    if (window.AICTE_I18N) window.AICTE_I18N.apply(document);
+    route();
+  },
   setFont(s) { document.documentElement.dataset.font = s; localStorage.setItem("aicte_font", s); },
   toggleContrast() {
     const on = document.documentElement.dataset.contrast === "high";
@@ -1418,7 +1517,8 @@ const A = {
     if (slot) slot.innerHTML = skeleton("source checks, ratios, hashes");
     try {
       const out = await api(`/applications/${appId}/validate`, { method: "POST" });
-      toast(`Checks finished: ${out.new_flags} new finding(s), risk ${out.risk_score} (${out.risk_level})`);
+      const d = out.delta || {};
+      toast(`Checks finished: ${out.new_flags} new finding(s), risk ${out.risk_score} (${out.risk_level}). Delta: ${d.auto_passed || 0} carried forward, ${(d.modified || 0) + (d.new_this_cycle || 0) + (d.rechecked || 0)} re-checked.`);
       route();
     } catch (e) {
       if (slot) slot.innerHTML = errBox(e.message);
@@ -1431,7 +1531,8 @@ const A = {
     if (!ok) return;
     try {
       const out = await api(`/applications/${appId}/submit`, { method: "POST" });
-      toast("Submitted. Validation raised " + out.new_flags + " new finding(s).");
+      const d = out.delta || {};
+      toast(`Submitted. Validation raised ${out.new_flags} new finding(s); ${d.auto_passed || 0} unchanged document(s) carried forward from the delta cache.`);
       route();
     } catch (e) { toast(e.message, true); }
   },
@@ -1467,35 +1568,120 @@ const A = {
   async runScan(roomId, btn) {
     const err = $("#sc-err-" + roomId);
     const code = $("#sc-code-" + roomId).value.trim();
-    const mode = document.querySelector(`input[name=scanmode-${roomId}]:checked`)?.value || "replay";
+    const mode = document.querySelector(`input[name=scanmode-${roomId}]:checked`)?.value || "camera";
     err.hidden = true;
     if (code.length !== 4) { err.hidden = false; err.textContent = "Type the four-character code the officer read to you."; $("#sc-code-" + roomId).focus(); return; }
     const body = { challenge_code: code, mode };
-    if (mode === "manual") {
+    if (mode === "camera") {
+      const cam = window.CamScan && window.CamScan.get(roomId);
+      if (!cam || !cam.corners || cam.corners.length !== 4) {
+        err.hidden = false;
+        err.textContent = "Open the camera and mark all four floor corners first, then enter the calibration edge.";
+        return;
+      }
+      body.measured_l = Number(cam.measured_l || $("#sc-l-" + roomId).value);
+      body.measured_w = Number(cam.measured_w || $("#sc-w-" + roomId).value);
+      body.measured_h = Number($("#sc-l-" + roomId).dataset.h || 0) || undefined;
+      body.corners = cam.corners;
+      body.calibration_edge_m = Number(cam.calibration_edge_m || $("#sc-cal-" + roomId).value);
+      body.focal_px = cam.focal_px;
+      body.frame_w = cam.frame_w || 0;
+      body.frame_h = cam.frame_h || 0;
+      body.frame_hash = cam.frame_hash;
+      body.device = cam.device;
+      if (cam.lat && cam.lng) { body.lat = cam.lat; body.lng = cam.lng; }
+      if (!(body.measured_l > 0 && body.measured_w > 0)) {
+        err.hidden = false; err.textContent = "The camera measurement is incomplete — mark four corners and enter the calibration edge."; return;
+      }
+    } else if (mode === "manual") {
       body.measured_l = Number($("#sc-l-" + roomId).value); body.measured_w = Number($("#sc-w-" + roomId).value);
       if (!(body.measured_l > 0 && body.measured_w > 0)) { err.hidden = false; err.textContent = "Manual mode needs a measured length and width in metres."; return; }
     }
-    btn.disabled = true; btn.textContent = "Scanning…";
+    btn.disabled = true; btn.textContent = "Measuring…";
     const steps = $$("#sc-steps-" + roomId + " li"), prog = $("#sc-prog-" + roomId);
     $("#sc-steps-" + roomId).hidden = false; prog.hidden = false;
     for (let i = 0; i < steps.length; i++) {
       steps.forEach((li, j) => li.className = j < i ? "done" : j === i ? "now" : "");
       prog.value = i;
-      await new Promise((r) => setTimeout(r, 420));
+      await new Promise((r) => setTimeout(r, 380));
     }
     try {
       const out = await api("/rooms/" + roomId + "/scan", { method: "POST", body });
+      if (window.CamScan) window.CamScan.close(roomId);
       steps.forEach((li) => li.className = "done"); prog.value = 5;
       const s = out.scan;
       const slot = $("#scan-msg");
-      if (slot) slot.innerHTML = `<div class="notice ${s.result === "Consistent" ? "" : "warn"}" role="status"><p style="margin:0"><b>${esc(s.result)}.</b> Measured ${s.measured_area_sqm} sq m against ${s.claimed_area_sqm} sq m claimed (${s.diff_pct}%, tolerance ${s.tolerance_pct}%). GPS inside the campus geofence: ${s.gps.inside_campus_geofence ? "yes" : "no"}, ${s.gps.distance_from_campus_centre_m} m from the declared campus centre. ${esc(s.note)}</p></div>`;
+      if (slot) slot.innerHTML = `<div class="notice ${s.result === "Consistent" ? "" : "warn"}" role="status"><p style="margin:0"><b>${esc(s.result)}.</b> Measured ${s.measured_area_sqm} sq m against ${s.claimed_area_sqm} sq m claimed (${s.diff_pct}%, tolerance ${s.tolerance_pct}%). Source: ${esc(s.source || "")}. GPS inside the campus geofence: ${s.gps.inside_campus_geofence ? "yes" : "no"}, ${s.gps.distance_from_campus_centre_m} m from the declared campus centre. ${esc(s.note)}</p></div>`;
       toast("Scan recorded: " + s.result);
-      setTimeout(() => route(), 3200);
+      setTimeout(() => route(), 3400);
     } catch (e) {
       err.hidden = false; err.textContent = e.message;
-      btn.disabled = false; btn.textContent = "Start scan";
+      btn.disabled = false; btn.textContent = "Submit measurement";
       $("#sc-steps-" + roomId).hidden = true; prog.hidden = true;
     }
+  },
+  scanMode(roomId) {
+    // switching away from the camera stops the stream; manual and replay keep working
+    const mode = document.querySelector(`input[name=scanmode-${roomId}]:checked`)?.value;
+    const host = $("#cam-live-host-" + roomId);
+    if (mode !== "camera") { if (window.CamScan) window.CamScan.close(roomId); if (host) host.innerHTML = ""; }
+  },
+  openCam(roomId, btn) {
+    const err = $("#cam-err-" + roomId);
+    if (err) err.hidden = true;
+    if (!window.CamScan) { if (err) { err.hidden = false; err.textContent = "The camera module did not load. Use manual entry or the replay mode."; } return; }
+    if (btn) { btn.disabled = true; btn.textContent = "Starting camera…"; }
+    const calEl = $("#sc-cal-" + roomId);
+    window.CamScan.open("cam-live-host-" + roomId, {
+      roomId,
+      calibration: Number(calEl?.value) || 0,
+      onMeasure: (m) => {
+        const l = $("#sc-l-" + roomId), w = $("#sc-w-" + roomId);
+        if (l && m.measured_long) l.value = m.measured_long.toFixed(2);
+        if (w && m.measured_short) w.value = m.measured_short.toFixed(2);
+        if (calEl && m.calibration_edge_m && !calEl.value) calEl.value = m.calibration_edge_m;
+        const msg = $("#cam-err-" + roomId);
+        if (msg) { msg.hidden = false; msg.className = "notice"; msg.textContent = `Marked ${m.corners.length} corner(s). ${m.measured_long ? "Estimated " + m.measured_long.toFixed(2) + " m × " + m.measured_short.toFixed(2) + " m." : "Mark four corners, then enter the calibration edge."}`; }
+      },
+      onError: (message) => {
+        const msg = $("#cam-err-" + roomId);
+        if (msg) { msg.hidden = false; msg.className = "ferr"; msg.textContent = message; }
+      },
+    }).then(() => {
+      if (btn) { btn.disabled = false; btn.textContent = "Restart camera"; }
+    }).catch(() => {
+      if (btn) { btn.disabled = false; btn.textContent = "Open camera"; }
+    });
+    if (calEl && !calEl.dataset.wired) {
+      calEl.dataset.wired = "1";
+      calEl.addEventListener("input", () => {
+        if (window.CamScan) window.CamScan.setCalibration(roomId, Number(calEl.value) || 0);
+      });
+    }
+    const lEl = $("#sc-l-" + roomId);
+    if (lEl) delete lEl.dataset.h;
+  },
+  clearCam(roomId) { if (window.CamScan) window.CamScan.clear(roomId); },
+  undoCam(roomId) { if (window.CamScan) window.CamScan.undo(roomId); },
+  async requestPoll(appId, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const out = await api(`/applications/${appId}/network/request-poll`, { method: "POST" });
+      toast("Device polling requested");
+      const slot = $("#net-slot");
+      if (slot) slot.innerHTML = `<div class="notice" role="status"><p style="margin:0"><b>Polling requested.</b> ${esc(out.note)}</p></div>`;
+      setTimeout(() => route(), 2200);
+    } catch (e) { toast(e.message, true); if (btn) btn.disabled = false; }
+  },
+  async submitPoll(appId, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = "Reading the campus network…"; }
+    const slot = $("#net-slot");
+    if (slot) slot.innerHTML = skeleton("campus polling agent");
+    try {
+      const out = await api(`/applications/${appId}/network/submit-poll`, { method: "POST" });
+      toast(`Polling received for ${out.poll.day}: ${out.network.observed_unique} systems observed`);
+      route();
+    } catch (e) { toast(e.message, true); if (btn) { btn.disabled = false; btn.textContent = "Run polling window from the campus agent"; } }
   },
   toggleHeat(on) { const l = $("#heat-layer"); if (l) l.style.display = on ? "" : "none"; },
   filterFaculty(q) {
