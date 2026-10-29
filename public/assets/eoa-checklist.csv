@@ -1,0 +1,71 @@
+Item code,Requirement,Group,Verification type,Source connector,Checks (modules),Mandatory,Deep validation
+A1,Advocate Certificate 1,Legal and Trust,B,DSC verifier (MOCK),M1 M3 M4,Yes,Presence and declaration
+A2,Affidavit 2 (infrastructure and faculty),Legal and Trust,B,e-Stamp registry (MOCK),M1 M3 M4,Yes,Yes
+A3,Joint Affidavit 7,Legal and Trust,B,e-Stamp registry (MOCK),M1 M3 M4,Yes,Presence and declaration
+A4,Trust / society registration certificate,Legal and Trust,B,Registrar of Societies (MOCK),M1 M3 M4,Yes,Presence and declaration
+A5,Memorandum of Association and bye-laws,Legal and Trust,B,Registrar of Societies (MOCK),M1 M3 M4,Yes,Presence and declaration
+A6,Trust resolution for this application,Legal and Trust,B,None,M1 M3 M4,Yes,Presence and declaration
+A7,Affidavit on ragging and grievance compliance,Legal and Trust,B,e-Stamp registry (MOCK),M1 M3 M4,Yes,Presence and declaration
+A8,List of other institutions run by the trust,Legal and Trust,B,Registrar of Societies (MOCK),M1 M3 M4,Yes,Presence and declaration
+B1,Registered land deed(s),Land and Building,A,e-District land records (MOCK),M1 M3 M4,Yes,Yes
+B2,Land use / conversion certificate,Land and Building,A,e-District land records (MOCK),M1 M3 M4,Yes,Presence and declaration
+B3,Encumbrance certificate,Land and Building,A,e-District land records (MOCK),M1 M3 M4,Yes,Presence and declaration
+B4,Approved building plan with room-wise carpet areas,Land and Building,E,Council of Architecture (MOCK),M1 M2 M4,Yes,Yes
+B5,Architect Certificate 2,Land and Building,E,Council of Architecture (MOCK),M1 M2 M4,Yes,Presence and declaration
+B6,Occupancy / completion certificate,Land and Building,A,Municipal issuer (MOCK),M1 M3 M4,Yes,Presence and declaration
+B7,Structural stability certificate,Land and Building,A,Municipal issuer (MOCK),M1 M3 M4,Yes,Presence and declaration
+B8,Fire safety certificate,Land and Building,A,Fire department / e-District (MOCK),M1 M3 M4,Yes,Yes
+B9,Satellite map photo with lat-long of campus,Land and Building,E,Geocoder (MOCK),M1 M2 M4,Yes,Presence and declaration
+C1,"Audited accounts, last three years",Financial,C,ICAI UDIN (MOCK),M1 M3 M5,Yes,Yes
+C2,Bank manager certificate (working capital),Financial,C,Bank (MOCK),M1 M3 M5,Yes,Yes
+C3,RPGF / FDR receipts,Financial,C,Bank (MOCK),M1 M3 M5,Yes,Yes
+C4,TER charges payment receipt,Financial,C,AICTE records (MOCK),M1 M3 M5,Yes,Presence and declaration
+C5,Equipment purchase bills (sample),Financial,C,None,M1 M3 M5,Yes,Presence and declaration
+C6,Library books and journal invoices,Financial,C,None,M1 M3 M5,Yes,Presence and declaration
+C7,Fee receipt counterfoils (sample),Financial,C,None,M1 M3 M5,Yes,Presence and declaration
+C8,CA certificate on fund availability,Financial,C,ICAI UDIN (MOCK),M1 M3 M5,Yes,Presence and declaration
+D1,NOC from affiliating university,Approvals and Affiliation,A,University portal (MOCK),M1 M3 M4,Yes,Presence and declaration
+D2,NOC / views of state government,Approvals and Affiliation,A,State portal (MOCK),M1 M3 M4,Yes,Presence and declaration
+D3,Previous EoA letters since inception (one PDF),Approvals and Affiliation,A,AICTE records (MOCK),M1 M3 M4,Yes,Presence and declaration
+D4,"University affiliation letter, current year",Approvals and Affiliation,A,University portal (MOCK),M1 M3 M4,Yes,Presence and declaration
+D5,ABC registration proof,Approvals and Affiliation,A,Academic Bank of Credits (MOCK),M1 M3 M4,Yes,Presence and declaration
+D6,Minority status certificate (if claimed),Approvals and Affiliation,A,State portal (MOCK),M1 M3 M4,Yes,Presence and declaration
+E1,Faculty list with qualifications (programme-wise),Faculty and HR,C,DigiLocker / ABC-NAD (MOCK),M1 M3 M5,Yes,Yes
+E2,"Salary sheet, last three months",Faculty and HR,C,EPFO (MOCK),M1 M3 M5,Yes,Yes
+E3,Recruitment advertisements and selection minutes,Faculty and HR,C,None,M1 M3 M5,Yes,Presence and declaration
+E4,Aadhaar / PAN seeding statement for faculty,Faculty and HR,C,PAN verification (MOCK),M1 M3 M5,Yes,Presence and declaration
+E5,Principal appointment order and qualifications,Faculty and HR,C,DigiLocker / ABC-NAD (MOCK),M1 M3 M5,Yes,Presence and declaration
+E6,"EPFO challans, last three months",Faculty and HR,C,EPFO (MOCK),M1 M3 M5,Yes,Presence and declaration
+E7,Visiting / adjunct faculty agreements,Faculty and HR,C,None,M1 M3 M5,Yes,Presence and declaration
+E8,Faculty development programme record,Faculty and HR,F,None,M1,Yes,Presence and declaration
+F1,Facilities walkthrough video,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F2,Internet bandwidth proof (ISP bill),Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F3,Library stock register extract,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F4,Sanctioned electrical load proof,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F5,Barrier-free access photographs,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F6,Green / energy / environment audit report,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+F7,Laboratory photographs (programme-wise),Infrastructure Evidence,E,None,M1 M2 M4,Yes,Yes
+F8,Computing facilities invoice and licence list,Infrastructure Evidence,E,None,M1 M2 M4,Yes,Presence and declaration
+G1,Disclosure home page live at declared URL,Website Disclosure,D,Public website crawler,M1,Yes,Yes
+G2,EoA letters since inception posted,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G3,Fee structure page,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G4,Faculty page with qualifications,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G5,Audited financial statements page,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G6,Admission criteria and intake page,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G7,Placement data page,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+G8,Grievance and anti-ragging portal links,Website Disclosure,D,Public website crawler,M1,Yes,Presence and declaration
+H1,Anti-ragging committee constitution,Committees and Declarations,F,None,M1,Yes,Yes
+H2,Internal complaints committee constitution,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H3,SC/ST cell and grievance cell orders,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H4,IQAC constitution and last meeting minutes,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H5,Undertaking on AICTE norms compliance,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H6,Student feedback mechanism statement,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H7,Industry-institute cell record,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+H8,Entrepreneurship cell record,Committees and Declarations,F,None,M1,Yes,Presence and declaration
+I1,NAAC accreditation certificate,Accreditation,A,NAAC (MOCK),M1 M3 M4,Yes,Yes
+I2,NBA accreditation letters (programmes),Accreditation,A,NBA (MOCK),M1 M3 M4,Yes,Presence and declaration
+I3,NIRF participation / ranking proof,Accreditation,A,NIRF (MOCK),M1 M3 M4,Yes,Presence and declaration
+I4,Insurance cover for students and assets,Accreditation,A,None,M1 M3 M4,Yes,Presence and declaration
+I5,Pollution / environment clearance (if applicable),Accreditation,A,State portal (MOCK),M1 M3 M4,Yes,Presence and declaration
+I6,Hostel and transport facility statement,Accreditation,F,None,M1,Yes,Presence and declaration
+I7,Innovation cell (IIC) registration,Accreditation,A,IIC portal (MOCK),M1 M3 M4,Yes,Presence and declaration
