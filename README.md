@@ -270,7 +270,7 @@ public/
   scan.js                CamScan: camera capture, corner marking, measurement
   chat.js / chat.css     bilingual floating assistant
   assets/eoa-checklist.csv   the 70-item checklist download
-qa/                      verification screenshots and the V2 scope note
+qa/                      V1 screenshots, V2 DOM snapshots, the V2 scope note
 ```
 
 Validation rules are configuration, not code: SFR target, room tolerance,

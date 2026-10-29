@@ -91,12 +91,14 @@ trust graph, faculty), document page, every public route, the Hindi toggle
 widget (chips, answer, source badge, deep links, Hindi answer, Escape to
 close) — with zero console errors.
 
-**Responsive.** Checked as a stylesheet audit rather than a browser run:
-a headless browser could not be installed in the build environment
-(no Chromium binary is downloadable there), so the responsive layer was
-verified by rule coverage across 1100/1024/900/768/560/420/360 px and by
-confirming every table sits inside a `.table-scroll` panel. This limitation
-is stated in the delivery note rather than papered over.
+**Responsive.** Checked as a stylesheet audit rather than a pixel run: a
+browser engine could not be installed in the build environment (Playwright's
+Chromium download is blocked, and the npm Chromium build needs `libnss3`,
+which is absent and cannot be fetched). The layer was verified by rule
+coverage across 1100/1024/900/768/560/420/360 px, by confirming every table
+sits inside a `.table-scroll` panel, and by capturing self-contained DOM
+snapshots in `qa/v2-snapshots/` that can be opened and resized by hand.
+This limitation is stated in the delivery note rather than papered over.
 
 ## Honest boundaries
 
