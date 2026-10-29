@@ -177,6 +177,8 @@ export default function RootLayout({ children }) {
         />
         <link rel="stylesheet" href="/styles.css" />
         <link rel="stylesheet" href="/chat.css" />
+        {/* Responsive corrections load last so they win over the base sheet. */}
+        <link rel="stylesheet" href="/responsive.css" />
       </head>
       <body>
         <div dangerouslySetInnerHTML={{ __html: SHELL_TOP }} />
@@ -185,7 +187,9 @@ export default function RootLayout({ children }) {
         </main>
         <div dangerouslySetInnerHTML={{ __html: SHELL_BOTTOM }} />
         <Script src="/app.js" strategy="afterInteractive" />
+        <Script src="/i18n.js" strategy="afterInteractive" />
         <Script src="/chat.js" strategy="afterInteractive" />
+        <Script src="/scan.js" strategy="afterInteractive" />
       </body>
     </html>
   );

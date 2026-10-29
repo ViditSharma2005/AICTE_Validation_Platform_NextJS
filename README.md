@@ -8,6 +8,12 @@ reconciliation), officer-requested room measurement, a cross-college
 trust graph, and a hash-chained audit trail. Findings advise; a Senior
 Officer records the only decision.
 
+Version 2 (**ASTRA V2**) keeps the GOV-3 royal-blue government shell, the
+M1–M7 rules and every demo number, and adds a delta processing cache,
+network (MAC) evidence, a camera-based room measurement, a fully bilingual
+interface with a bilingual assistant, and a responsive layer for 320 px to
+1440 px.
+
 Design: GOV-3 royal-blue government portal (DBIM v3.0 / GIGW 3.0 pattern)
 — utility bar with language/text-size/contrast controls, announcements
 ticker, breadcrumbs, four-column footer, bilingual (English/Hindi) shell.
@@ -16,6 +22,128 @@ A floating **Portal Assistant** (bottom-right "Help" bubble) answers
 navigation and how-to questions ("my document was returned — how do I fix
 it?") from a built-in portal guide, with deep links into the app. It works
 with zero configuration; Gemini or Grok can be switched on via env vars.
+
+---
+
+## What ASTRA V2 adds
+
+### 1. Delta processing cache
+
+Every filed document gets a SHA-256 content hash over its normalised
+extraction (`filename`, `fields`, `phash`). The cache is keyed
+`application_id:checklist_code` and stores the hash, the verification
+status, the rule version it was checked under, and a timestamp. A document
+is carried forward — **Auto-passed (unchanged)** — only when the same
+content was already verified, the rule version has not moved, and the
+document has not expired. Anything else is re-checked in full:
+**Modified — re-verified**, **Re-checked (rules updated)**,
+**Re-checked (expiry reached)**, **New this cycle**.
+
+- Any System Admin change to thresholds or checklist rules bumps
+  `rule_version`, which invalidates the cache for the next run: findings
+  that were auto-passed become `rechecked`, then auto-pass again once the
+  rules are current.
+- `GET /api/meta` exposes `rule_version`; every validation response and
+  upload response carries `delta_status` and a `delta` summary; documents
+  carry `delta_status` in list and detail serialisers.
+- The college file and the officer file both show a delta strip
+  (`#sec-delta`) with the four outcomes and the current rule version.
+
+### 2. Network (device) evidence
+
+Each institution declares a computer estate; the campus polling agent
+reports which machines answer over a three-day window.
+
+- Device identity is a **salted SHA-256 fingerprint** of the hardware
+  address. The same machine produces the same fingerprint across
+  institutions, and no raw MAC address is ever stored or displayed.
+- `GET /api/applications/:id/network` returns declared versus observed
+  counts, per-day sightings, stable/churn counts, variance against
+  `mac_count_tolerance_pct` (default 10), and pairwise Jaccard overlap
+  against `mac_jaccard_threshold` (default 0.10).
+- `POST /api/applications/:id/network/request-poll` (officer) and
+  `POST /api/applications/:id/network/submit-poll` (College Admin) open and
+  answer a polling window.
+- Findings: `MAC-COUNT` (Medium) when the observed estate is materially
+  below the declared estate, `MAC-OVERLAP-<otherAppId>` (Medium) when the
+  same physical machines are counted by two colleges. Both are evidence
+  for an officer, not findings of ownership or fraud.
+- The trust graph gains device edges, and the assistant's guide is updated.
+
+### 3. Camera-based room measurement
+
+`public/scan.js` exposes `window.CamScan`. The scan panel now offers three
+modes: **Live camera measurement**, **Recorded replay**, and **manual**.
+
+In camera mode the browser asks for `getUserMedia({video:{facingMode:"environment"}})`,
+marks the four floor corners on a canvas overlay, calibrates one edge from
+a real tape length, and estimates the area by four-point homography
+rectification. A still frame is hashed with SubtleCrypto, geolocation is
+compared with the campus geofence, all tracks are stopped when the panel
+closes, and the payload is posted to `POST /api/rooms/:roomId/scan` with
+`mode: "camera"`. Blocked or missing cameras fall back to replay/manual
+with a plain explanation rather than a dead end.
+
+### 4. Bilingual interface and assistant
+
+- `public/i18n.js` (loaded after `app.js`) carries the EN→HI dictionary,
+  pattern translations for strings with numbers, and a MutationObserver on
+  the document body so late-rendered sections (faculty, finance, network,
+  graph, toasts) are translated too.
+- Stored evidence — finding reasons, registry values, file names, hashes,
+  audit JSON — deliberately stays in the language it was recorded in, so
+  quoted evidence is never rewritten. Every label around it is Hindi.
+- `POST /api/chat` accepts `{message, lang}` and answers in formal
+  Devanagari for `lang: "hi"`. The guide (`lib/kb.js` + `lib/kb.hi.js`) is
+  bilingual; Gemini/Grok remain optional and fall back silently to the
+  local answer.
+
+### 5. Responsive layer
+
+`public/responsive.css` (loaded after `styles.css`) handles 1100 / 1024 /
+900 / 768 / 560 / 420 / 360 px: tables scroll inside `.table-scroll`
+panels only, the section index becomes a horizontal strip, the deltas and
+counters re-flow from four columns to two to one, the camera viewport
+switches to portrait, the chat panel goes full-screen below 560 px, and
+every button, input and chip keeps a 44 px target.
+
+### API surface added in V2
+
+| Method and path | Role | Purpose |
+|---|---|---|
+| `GET /api/applications/:id/network` | any signed-in role that can see the file | declared vs observed devices, per-day counts, overlap |
+| `POST /api/applications/:id/network/request-poll` | Scrutiny / Senior Officer | ask the college for a fresh three-day window |
+| `POST /api/applications/:id/network/submit-poll` | College Admin | submit the polling window reported by the campus agent |
+| `POST /api/rooms/:roomId/scan` | College Admin | `mode: "camera"` accepted alongside `replay` and the manual form |
+| `GET /api/meta` | public | now also returns `rule_version` for the delta cache |
+| `POST /api/chat` | public | accepts `{message, lang}`; `lang: "hi"` answers in Devanagari |
+
+Validation, upload and scan responses carry `delta_status` (and, for
+uploads and validation, a `delta` summary) so the interface can explain
+what was carried forward without a second request.
+
+## Honest boundaries
+
+- **Device polling is simulated on both sides.** The "campus polling agent"
+  is a deterministic generator over the seeded estate; nothing performs
+  SNMP or ARP discovery. The fingerprints, counts and overlap arithmetic
+  are real functions of that data, and the API contract is the one a real
+  agent would use.
+- **The camera scan is photogrammetry, not ARCore.** It is a single-view
+  perspective measurement from four marked floor corners with an assumed
+  65° horizontal field of view and one tape-measured edge. It is good to a
+  few percent in decent light and honest about its error; it is not a
+  depth-sensor survey, and it never decides anything by itself.
+- **Delta auto-passing never hides a change.** A document is only carried
+  forward when the content hash, the rule version and the validity window
+  all still agree; otherwise it is re-checked in full.
+- **The dataset is in memory.** Writes live while an instance stays warm
+  and reset on a cold start — System Admin → Reset data restores the seed
+  deliberately.
+- **Verified means "agrees with the source record", not "genuine".**
+  Findings advise; only a Senior Officer records a decision, under their
+  own name, and every significant action is written to the hash-chained
+  audit trail.
 
 ---
 
@@ -64,7 +192,7 @@ form.
 
 | Email | Password | Role |
 |---|---|---|
-| `admin@aarav.edu` | `aarav123` | College Admin — Aniket Institute of Technology (has a live 2027-28 draft) |
+| `admin@aarav.edu` | `aarav123` | College Admin — Aarav Institute of Technology (the flagged file, app 2) |
 | `office@aarav.edu` | `aarav123` | College Staff — uploads only |
 | `admin@malwa.edu` | `malwa123` | College Admin — Malwa College of Engineering (the clean file) |
 | `officer@aicte.demo` | `officer123` | Scrutiny Officer |
@@ -73,9 +201,9 @@ form.
 | `auditor@aicte.demo` | `audit123` | Auditor (read-only) |
 
 Suggested first walk: sign in as the Scrutiny Officer → the queue is
-risk-ordered, Aniket first (100, 14 open findings) → open the file → each
-finding opens its evidence; Sah stays at 0 with no false flags. Then, as
-Aniket College Admin, open the 2027-28 draft and upload the unsigned
+risk-ordered, Aarav first (100, 14 open findings) → open the file → each
+finding opens its evidence; Malwa stays at 0 with no false flags. Then, as
+the Aarav College Admin, open the 2027-28 draft and upload the unsigned
 affidavit to see the gate return it with the fix.
 
 ## Portal Assistant (chat)
@@ -131,14 +259,18 @@ lib/
   pipeline.js            validation orchestrator, desk files, faculty/finance, trust graph
   store.js               seeded in-memory store, audit chain, serialisers
   auth.js                HMAC bearer tokens, role guards
-  kb.js / chat.js        portal-guide chunks + local/Gemini/Grok answerers
+  kb.js / kb.hi.js       portal-guide chunks in English and Hindi
+  chat.js                retrieval + local/Gemini/Grok answerers
   seed/db.json           initial dataset
 public/
   app.js                 portal views (hash router), calls /api/*
+  i18n.js                Hindi interface layer (dictionary + patterns + observer)
   styles.css             GOV-3 royal-blue stylesheet
-  chat.js / chat.css     floating assistant widget
+  responsive.css         responsive layer, 1100 → 360 px
+  scan.js                CamScan: camera capture, corner marking, measurement
+  chat.js / chat.css     bilingual floating assistant
   assets/eoa-checklist.csv   the 70-item checklist download
-qa/                      verification screenshots
+qa/                      verification screenshots and the V2 scope note
 ```
 
 Validation rules are configuration, not code: SFR target, room tolerance,

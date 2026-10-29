@@ -683,3 +683,79 @@ html[data-contrast="high"] .new-tag { background: #000000; color: #FFFF00; borde
   .with-toc, .split-75, .split-64, .split-55 { grid-template-columns: 1fr; }
   a { color: #000000; text-decoration: none; }
 }
+
+/* =====================================================================
+   V2 components — Delta Processing Cache, network evidence, live camera.
+   Same tokens and geometry as the rest of the portal: 1px lines, 4px
+   radius, royal blue with navy and tint, no shadows.
+   ===================================================================== */
+
+.delta-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+.delta-strip > div {
+  border: 1px solid var(--line-blue);
+  border-left: 4px solid var(--gov-blue);
+  background: var(--bg-alt);
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+.delta-strip > div:nth-child(2) { border-left-color: var(--maroon); }
+.delta-strip > div:nth-child(3) { border-left-color: var(--saffron-dark); }
+.delta-strip > div:nth-child(4) { border-left-color: var(--chip-blue); }
+.delta-strip .big {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--gov-blue-dark);
+}
+.delta-strip .lbl {
+  margin-top: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--grey-3);
+}
+.delta-tag { font-size: 0.68rem; letter-spacing: 0.01em; }
+
+.net-ledger > div { border-top-color: var(--gov-blue); }
+.net-ledger > div:nth-child(3) { border-top-color: var(--maroon); }
+
+.cam-live { margin: 14px 0 4px; }
+.cam-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  aspect-ratio: 4 / 3;
+  background: #06111F;
+  border: 1px solid var(--gov-blue-dark);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cam-viewport video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cam-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+.cam-controls { max-width: 760px; margin-top: 12px; }
+.cam-controls label.f { margin-top: 0; }
+.cam-controls input { max-width: 220px; }
+
+@media (max-width: 900px) {
+  .delta-strip { grid-template-columns: 1fr 1fr; }
+  .cam-viewport { aspect-ratio: 3 / 4; }
+}
+@media (max-width: 560px) {
+  .delta-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .delta-strip .big { font-size: 1.4rem; }
+  .delta-strip > div { padding: 10px; }
+}
